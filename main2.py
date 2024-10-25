@@ -60,8 +60,19 @@ class CausalSelfAttention(nn.Modue):
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
 
+        # matrix multiplication of q and k.
+        # then we scale by K = 1/sqrt(k.size(-1))
         attn = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        # mask = hide future tokens
+        # the mask is a lower triangular matrix, so we set the attention scores to -inf
+        # for the tokens beyond the actual sequence length.
+        # example: if T = 3, then the mask is:
+        # [[[1, 0, 0],
+        #   [1, 1, 0],
+        #   [1, 1, 1]]]
         attn = attn.masked_fill(self.bias[:, :, :T, :T] == 0, float("-inf"))
+        # finally, we take the softmax
+        # softmax turns -inf into 0
         attn = F.softmax(attn, dim=-1)
 
         y = attn @ v  # (B, nh, T, hs)
